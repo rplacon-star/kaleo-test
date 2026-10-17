@@ -724,8 +724,7 @@ document.getElementById('maj').textContent='Mise à jour le '+DEV.maj;if(!DEV.te
 var C=DEV.sens.map(function(s){return calc(DEV,s)});
 document.getElementById('cards').innerHTML='<div class="c"><small>Quand</small><b>'+esc(DEV.debutTxt)+'<br>→ '+esc(DEV.finTxt)+'</b></div><div class="c"><small>À partir de</small><b>'+esc(DEV.heureTxt)+'</b></div><div class="c"><small>Impact par course (estimé)</small><b>'+DEV.sens.map(function(s,i){return '<span style="color:'+s.couleur+'">'+esc(s.nom.replace('Vers ',''))+' : '+C[i].txtKm+', '+C[i].txtMin.replace('< 1','&lt;1')+'</span>'}).join('<br>')+'</b></div>';
 var map=L.map('map',{zoomControl:false,dragging:false,scrollWheelZoom:false,doubleClickZoom:false,boxZoom:false,keyboard:false,touchZoom:false,zoomSnap:0.1,fadeAnimation:false,zoomAnimation:false});
-var osm=L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map),nerr=0,sw=false;
-osm.on('tileerror',function(){if(sw||++nerr<3)return;sw=true;map.removeLayer(osm);L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(map).bringToBack()});
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(map);
 function icon(h,s){return L.divIcon({className:'',html:h,iconSize:[s,s],iconAnchor:[s/2,s/2]})}
 if(DEV.zone.length){L.polyline(DEV.zone,{color:'#f97316',weight:14,opacity:.6,lineCap:'butt'}).addTo(map);L.polyline(DEV.zone,{color:'#fff',weight:14,opacity:.85,dashArray:'3 8',lineCap:'butt'}).addTo(map)}
 L.polyline(DEV.sens[0].normal,{color:'#4b5563',weight:4,dashArray:'6 7'}).addTo(map);
