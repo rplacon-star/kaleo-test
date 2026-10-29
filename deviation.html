@@ -712,7 +712,7 @@ function chevrons(line,every){var out=[],acc=every/2;for(var i=1;i<line.length;i
 function fr(n,d){return n.toLocaleString('fr-FR',{minimumFractionDigits:d,maximumFractionDigits:d})}
 function calc(DEV,s){var dm=len(s.deviation)-len(s.normal),dkm=dm/1000;var j=Math.round((new Date(DEV.fin)-new Date(DEV.debut))/864e5);var min=dkm/15*60;
  return {dkm:dkm,txtKm:(dkm>=0?'+':'−')+fr(Math.abs(dkm),2)+' km',txtMin:(min<1?'< 1 min':'+'+Math.round(min)+' min'),jours:j,periode:Math.round(Math.abs(dkm)*DEV.coursesJour*j),courses:DEV.coursesJour*j}}
-function statut(DEV){var n=new Date(),a=new Date(DEV.debut),b=new Date(DEV.fin);if(n<a)return['À venir','#64748b'];if(n>b)return['Terminée','#64748b'];var j=Math.floor((n-a)/864e5)+1,t=Math.round((b-a)/864e5);return['En cours · jour '+j+'/'+t,'#16a34a']}
+function statut(DEV){var n=new Date(),a=new Date(DEV.debut),b=DEV.fin?new Date(DEV.fin):null;if(n<a)return['À venir','#64748b'];if(b&&n>b)return['Terminée','#64748b'];var j=Math.floor((n-a)/864e5)+1;if(!b||isNaN(b))return['En cours · jour '+j,'#16a34a'];var t=Math.round((b-a)/864e5);return['En cours · jour '+j+'/'+t,'#16a34a']}
 function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})}
 </script>
 <script>
@@ -723,11 +723,11 @@ function esc(s){return String(s).replace(/[&<>"]/g,function(c){return{'&':'&amp;
  function erreur(t){document.getElementById('test').style.display='none';document.querySelector('header').innerHTML='<div class="kick">INFO DÉVIATION</div><h1 style="font-size:20px">'+t+'</h1>';['when','seg','leg','kpis','hyp','pills','steps'].forEach(function(x){var e=document.getElementById(x);if(e)e.innerHTML=''});document.querySelector('.mapw').style.display='none';document.querySelector('h2').style.display='none'}
  if(!id){erreur('Adresse incomplète : scannez à nouveau le QR code de la fiche.');return}
  fetch('donnees/'+encodeURIComponent(id)+'.json?t='+Date.now(),{cache:'no-store'})
-  .then(function(r){if(!r.ok)throw r.status;return r.json()})
+  .then(function(r){if(r.status==404){erreur('Publication en cours… la page s’affichera dans une minute.');setTimeout(function(){location.reload()},20000);throw 'attente'}if(!r.ok)throw r.status;return r.json()})
   .then(function(d){window.DEV=d.page||d;if(!DEV.sens||!DEV.sens.length)throw 'vide';
    var sc=document.createElement('script');sc.textContent=document.getElementById('rendu').textContent;document.body.appendChild(sc);
    if(DEV.consignes){var h=document.getElementById('hyp');h.innerHTML='<b>Consignes :</b> '+esc(DEV.consignes).split(String.fromCharCode(10)).join('<br>')+'<br>'+h.innerHTML}})
-  .catch(function(){erreur('Cette déviation est introuvable ou n’est plus publiée.')});
+  .catch(function(e){if(e!=='attente')erreur('Cette déviation est introuvable ou n’est plus publiée.')});
  // la page reste ouverte en salle ou sur le téléphone : on recharge les données toutes les 10 minutes
  setTimeout(function(){location.reload()},6e5);
 })();
