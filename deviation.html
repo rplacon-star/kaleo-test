@@ -661,6 +661,17 @@ svg.leaflet-image-layer.leaflet-interactive path {
 		}
 	}
 .sv{display:inline-block;margin-top:4px;font-size:13px;font-weight:600;color:#1d6fd8;text-decoration:none;border:1px solid #c7d7fe;border-radius:8px;padding:3px 9px;background:#f5f8ff}
+
+#rue{position:fixed;inset:0;background:rgba(9,14,25,.94);z-index:5000;display:none;flex-direction:column}
+#rue.on{display:flex}
+#rue .barre{display:flex;align-items:center;gap:10px;padding:10px 12px;color:#fff;font-size:15px}
+#rue .barre b{flex:1;line-height:1.25}
+#rue .barre button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:9px 14px;background:#fff;color:#101828;cursor:pointer}
+#rue #sv{flex:1;min-height:0}
+#rue .pied{color:#cbd5e1;font-size:12px;padding:6px 12px 10px}
+#rue .pied a{color:#93c5fd}
+#rue .vide{flex:1;display:flex;align-items:center;justify-content:center;color:#fff;text-align:center;padding:20px;font-size:16px;line-height:1.5}
+#rue .vide a{color:#93c5fd}
 </style>
 <style>
 :root{--navy:#14213d;--bg:#eef2f6;--ink:#111827;--mut:#5b6678;--red:#dc2626;--org:#ea7a1a}
@@ -764,7 +775,7 @@ function show(i){cur=i;var s=DEV.sens[i];layer.clearLayers();mk=[];document.docu
  var c=calc(DEV,s);
  document.getElementById('kpis').innerHTML='<div class="k"><b style="color:'+s.couleur+'">'+c.txtKm+'</b><span>par course</span></div><div class="k"><b style="color:'+s.couleur+'">'+c.txtMin+'</b><span>temps estimé<br>par course</span></div>';
  document.getElementById('hyp').textContent='Km et temps calculés sur les tracés, par course.';
- document.getElementById('steps').innerHTML=s.etapes.map(function(e,k){return '<li onclick="pick('+k+')"><div class="n" style="background:'+s.couleur+'">'+(k+1)+'</div><div>'+e.txt+'<br><a class="sv" href="'+rue(s,e.pos)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">👁 Voir la rue</a></div></li>'}).join('');
+ document.getElementById('steps').innerHTML=s.etapes.map(function(e,k){return '<li onclick="pick('+k+')"><div class="n" style="background:'+s.couleur+'">'+(k+1)+'</div><div>'+e.txt+'<br><a class="sv" href="'+rue(s,e.pos)+'" target="_blank" rel="noopener" onclick="event.stopPropagation();return !(window.voirRue&&window.voirRue('+k+'))">👁 Voir la rue</a></div></li>'}).join('');
  var f=function(t){return s.arrets.filter(function(a){return a.statut==t})},pl=function(l,c){return l.map(function(a){return '<span class="p '+c+'">'+esc(a.nom)+'</span>'}).join('')};
  document.getElementById('pills').innerHTML='<b>Arrêts non desservis</b>'+pl(f('non'),'no')+'<b>Arrêts de report</b>'+pl(f('report'),'ok')+'<b>Desservi pendant la déviation</b>'+pl(f('dev'),'dv')+'<div style="font-size:12.5px;color:#5b6678;margin-top:4px">Tous les arrêts sont à desservir sur la déviation.</div>';
  document.getElementById('leg').innerHTML='<span><i style="border-color:'+s.couleur+'"></i>Déviation</span><span><i style="border-color:#6b7280;border-top-style:dashed"></i>Itinéraire normal</span><span><b style="color:#dc2626">×</b> Arrêt supprimé</span><span><span class="dot" style="border:3px solid #ea7a1a"></span>Desservi pendant la déviation</span><span><i style="border-color:#f97316;border-top-width:8px;opacity:.6"></i>Travaux</span>';
@@ -780,4 +791,72 @@ function rue(s,p){var t=s.deviation||[],d=function(a,b){var kx=Math.cos(a[0]*Mat
 function pick(k){document.querySelectorAll('#steps li').forEach(function(li,j){li.classList.toggle('on',j==k)});map.setView(DEV.sens[cur].etapes[k].pos,18);document.getElementById('map').scrollIntoView({behavior:'smooth',block:'center'})}
 document.getElementById('seg').innerHTML=DEV.sens.map(function(s,i){return '<button onclick="show('+i+')">'+esc(s.nom)+'</button>'}).join('');
 show(0);
-</script></body></html>
+</script>
+<div id="rue"><div class="barre"><b id="rueTitre"></b><button type="button" onclick="fermerRue()">✕ Fermer</button></div><div id="sv"></div><div class="pied" id="ruePied"></div></div>
+<!-- clé Google Maps (restreinte à cette adresse) : fichier config.js déposé à part, jamais dans ce fichier -->
+<script src="config.js"></script>
+<script>
+// « Voir la rue » (29/10/2026) : Google Street View intégré, pris juste avant le virage et orienté dans le sens du bus,
+// avec le tracé de la déviation en points bleus posés sur la chaussée et la manœuvre affichée au carrefour.
+// Sans clé (config.js absent) : le bouton ouvre simplement Google Street View dans un nouvel onglet.
+(function () {
+  var CLE = window.KALEO_CLE_GOOGLE; if (!CLE) return;
+  var R = Math.PI / 180, charge = null, pano = null, reperes = [];
+  function d(a, b) { return Math.hypot((a[0] - b[0]) * 111195, (a[1] - b[1]) * 111195 * Math.cos(a[0] * R)); }
+  function cap(a, b) { return (Math.atan2((b[1] - a[1]) * Math.cos(a[0] * R), b[0] - a[0]) / R + 360) % 360; }
+  function charger() {
+    if (charge) return charge;
+    charge = new Promise(function (ok, ko) {
+      window.__kaleoGoogle = ok;
+      var sc = document.createElement('script');
+      sc.src = 'https://maps.googleapis.com/maps/api/js?key=' + encodeURIComponent(CLE) + '&v=weekly&language=fr&region=FR&callback=__kaleoGoogle';
+      sc.async = true; sc.onerror = ko; document.head.appendChild(sc);
+    });
+    return charge;
+  }
+  window.fermerRue = function () { document.getElementById('rue').classList.remove('on'); reperes.forEach(function (m) { m.setMap(null); }); reperes = []; };
+  window.voirRue = function (k) { ouvrir(k); return true; };
+  function svgPoint(c) { return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><circle cx="12" cy="12" r="9" fill="' + c + '" stroke="#fff" stroke-width="3"/></svg>'); }
+  function svgPanneau(t, c) {
+    var w = 26 + t.length * 13;
+    return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="56"><rect x="2" y="2" rx="12" width="' + (w - 4) + '" height="40" fill="' + c + '" stroke="#fff" stroke-width="3"/><path d="M' + (w / 2 - 8) + ' 42 L' + (w / 2) + ' 54 L' + (w / 2 + 8) + ' 42 Z" fill="' + c + '"/><text x="' + (w / 2) + '" y="29" font-family="Arial,sans-serif" font-size="20" font-weight="bold" fill="#fff" text-anchor="middle">' + t + '</text></svg>');
+  }
+  function ouvrir(k) {
+    var s = DEV.sens[cur], e = s.etapes[k], t = s.deviation || [];
+    var tmp = document.createElement('div'); tmp.innerHTML = e.txt; var texte = tmp.textContent;
+    var lien = '<a href="' + rue(s, e.pos) + '" target="_blank" rel="noopener">Ouvrir dans Google Maps</a>';
+    document.getElementById('rueTitre').textContent = (k + 1) + '. ' + texte;
+    document.getElementById('ruePied').innerHTML = 'Chargement de la vue…';
+    var zone = document.getElementById('sv'); zone.innerHTML = '';
+    document.getElementById('rue').classList.add('on');
+    // point de vue : 25 m avant le virage, sur le tracé
+    var i = 0, m = 1e9; t.forEach(function (q, j) { var x = d(q, e.pos); if (x < m) { m = x; i = j; } });
+    var j = i; while (j > 0 && d(t[j], e.pos) < 25) j--;
+    var avant = t[j] || e.pos;
+    charger().then(function () {
+      var g = google.maps;
+      new g.StreetViewService().getPanorama({ location: { lat: avant[0], lng: avant[1] }, radius: 40, source: g.StreetViewSource.OUTDOOR, preference: g.StreetViewPreference.NEAREST }, function (data, statut) {
+        if (statut !== g.StreetViewStatus.OK) { zone.innerHTML = '<div class="vide">Pas de vue Street View à cet endroit.<br>' + lien + '</div>'; document.getElementById('ruePied').innerHTML = ''; return; }
+        var pos = [data.location.latLng.lat(), data.location.latLng.lng()];
+        pano = new g.StreetViewPanorama(zone, { pano: data.location.pano, pov: { heading: cap(pos, e.pos), pitch: -8 }, zoom: 0.6, addressControl: false, fullscreenControl: true, motionTracking: false, motionTrackingControl: false, showRoadLabels: true });
+        // tracé : un point bleu tous les 4 m, de la photo jusqu'à 120 m après le virage
+        var couleur = s.couleur || '#1d6fd8', pts = [], acc = 0, k0 = 0, m0 = 1e9;
+        t.forEach(function (q, n) { var x = d(q, pos); if (x < m0) { m0 = x; k0 = n; } });
+        for (var n = Math.min(k0, i); n < t.length - 1; n++) {
+          var a = t[n], b = t[n + 1], l = d(a, b), c = Math.max(1, Math.round(l / 4));
+          for (var u = 0; u < c; u++) pts.push([a[0] + (b[0] - a[0]) * u / c, a[1] + (b[1] - a[1]) * u / c]);
+          if (n >= i) { acc += l; if (acc > 120) break; }
+        }
+        var icone = { url: svgPoint(couleur), scaledSize: new g.Size(24, 24), anchor: new g.Point(12, 12) };
+        pts.forEach(function (q) { if (d(q, pos) > 4) reperes.push(new g.Marker({ position: { lat: q[0], lng: q[1] }, map: pano, icon: icone, clickable: false })); });
+        var man = /droite/i.test(texte) ? '↱ À droite ici' : /gauche/i.test(texte) ? '↰ À gauche ici' : /demi-tour/i.test(texte) ? '↶ Demi-tour' : '↑ Tout droit';
+        var w = 26 + man.length * 13;
+        reperes.push(new g.Marker({ position: { lat: e.pos[0], lng: e.pos[1] }, map: pano, clickable: false, zIndex: 10, icon: { url: svgPanneau(man, couleur), scaledSize: new g.Size(w, 56), anchor: new g.Point(w / 2, 56) } }));
+        var date = data.imageDate ? ' · image Google du ' + data.imageDate.split('-').reverse().join('/') : '';
+        document.getElementById('ruePied').innerHTML = 'Vue à ' + Math.round(d(pos, e.pos)) + ' m du virage' + date + ' · tracé indicatif · ' + lien;
+      });
+    }, function () { zone.innerHTML = '<div class="vide">Google Street View indisponible.<br>' + lien + '</div>'; });
+  }
+})();
+</script>
+</body></html>
