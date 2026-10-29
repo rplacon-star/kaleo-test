@@ -660,6 +660,7 @@ svg.leaflet-image-layer.leaflet-interactive path {
 		print-color-adjust: exact;
 		}
 	}
+.sv{display:inline-block;margin-top:4px;font-size:13px;font-weight:600;color:#1d6fd8;text-decoration:none;border:1px solid #c7d7fe;border-radius:8px;padding:3px 9px;background:#f5f8ff}
 </style>
 <style>
 :root{--navy:#14213d;--bg:#eef2f6;--ink:#111827;--mut:#5b6678;--red:#dc2626;--org:#ea7a1a}
@@ -763,11 +764,19 @@ function show(i){cur=i;var s=DEV.sens[i];layer.clearLayers();mk=[];document.docu
  var c=calc(DEV,s);
  document.getElementById('kpis').innerHTML='<div class="k"><b style="color:'+s.couleur+'">'+c.txtKm+'</b><span>par course</span></div><div class="k"><b style="color:'+s.couleur+'">'+c.txtMin+'</b><span>temps estimé<br>par course</span></div>';
  document.getElementById('hyp').textContent='Km et temps calculés sur les tracés, par course.';
- document.getElementById('steps').innerHTML=s.etapes.map(function(e,k){return '<li onclick="pick('+k+')"><div class="n" style="background:'+s.couleur+'">'+(k+1)+'</div><div>'+e.txt+'</div></li>'}).join('');
+ document.getElementById('steps').innerHTML=s.etapes.map(function(e,k){return '<li onclick="pick('+k+')"><div class="n" style="background:'+s.couleur+'">'+(k+1)+'</div><div>'+e.txt+'<br><a class="sv" href="'+rue(s,e.pos)+'" target="_blank" rel="noopener" onclick="event.stopPropagation()">👁 Voir la rue</a></div></li>'}).join('');
  var f=function(t){return s.arrets.filter(function(a){return a.statut==t})},pl=function(l,c){return l.map(function(a){return '<span class="p '+c+'">'+esc(a.nom)+'</span>'}).join('')};
  document.getElementById('pills').innerHTML='<b>Arrêts non desservis</b>'+pl(f('non'),'no')+'<b>Arrêts de report</b>'+pl(f('report'),'ok')+'<b>Desservi pendant la déviation</b>'+pl(f('dev'),'dv')+'<div style="font-size:12.5px;color:#5b6678;margin-top:4px">Tous les arrêts sont à desservir sur la déviation.</div>';
  document.getElementById('leg').innerHTML='<span><i style="border-color:'+s.couleur+'"></i>Déviation</span><span><i style="border-color:#6b7280;border-top-style:dashed"></i>Itinéraire normal</span><span><b style="color:#dc2626">×</b> Arrêt supprimé</span><span><span class="dot" style="border:3px solid #ea7a1a"></span>Desservi pendant la déviation</span><span><i style="border-color:#f97316;border-top-width:8px;opacity:.6"></i>Travaux</span>';
 }
+/* « Voir la rue » : Street View 25 m avant le virage, orienté dans le sens de marche du bus (lien Google Maps, sans clé) */
+function rue(s,p){var t=s.deviation||[],d=function(a,b){var kx=Math.cos(a[0]*Math.PI/180)*111195;return Math.hypot((a[0]-b[0])*111195,(a[1]-b[1])*kx)};
+ var i=0,m=1e9;t.forEach(function(q,j){var x=d(q,p);if(x<m){m=x;i=j}});
+ var v=p,c=p,j=i;while(j>0&&d(t[j],p)<25)j--;
+ if(t.length&&j<i&&d(t[j],p)>=5){v=t[j];c=p}
+ else{var k=i;while(k<t.length-1&&d(t[k],p)<20)k++;if(t.length)c=t[k]}  /* 1re étape : on regarde vers la suite du tracé */
+ var cap=(Math.atan2((c[1]-v[1])*Math.cos(v[0]*Math.PI/180),c[0]-v[0])*180/Math.PI+360)%360;
+ return 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint='+v[0].toFixed(6)+','+v[1].toFixed(6)+'&heading='+Math.round(cap)+'&pitch=0&fov=80'}
 function pick(k){document.querySelectorAll('#steps li').forEach(function(li,j){li.classList.toggle('on',j==k)});map.setView(DEV.sens[cur].etapes[k].pos,18);document.getElementById('map').scrollIntoView({behavior:'smooth',block:'center'})}
 document.getElementById('seg').innerHTML=DEV.sens.map(function(s,i){return '<button onclick="show('+i+')">'+esc(s.nom)+'</button>'}).join('');
 show(0);
