@@ -664,6 +664,19 @@ svg.leaflet-image-layer.leaflet-interactive path {
 
 #rue{position:fixed;inset:0;background:rgba(9,14,25,.94);z-index:5000;display:none;flex-direction:column}
 #rue.on{display:flex}
+.jouer{display:none;margin:0 12px 10px;width:calc(100% - 24px);border:0;border-radius:12px;padding:12px;background:#16a34a;color:#fff;font:800 15.5px system-ui,sans-serif;cursor:pointer;box-shadow:0 2px 8px rgba(22,163,74,.35)}
+#video{position:fixed;inset:0;background:#0b1220;z-index:5000;display:none;flex-direction:column}
+#video.on{display:flex}
+#video .barre{display:flex;align-items:center;gap:8px;padding:10px 12px;color:#fff;font-size:15px}
+#video .barre b{flex:1;line-height:1.25}
+#video .barre button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:9px 14px;background:#fff;color:#101828;cursor:pointer}
+#video .barre button.vert{background:#16a34a;color:#fff}
+#carte3d{flex:1;position:relative}
+#vMan{position:absolute;z-index:5;left:10px;top:10px;display:flex;align-items:center;gap:12px;background:#16a34a;color:#fff;border-radius:14px;padding:9px 14px;box-shadow:0 3px 12px rgba(0,0,0,.35);max-width:calc(100% - 40px)}
+#vMan .f{font:800 32px/1 system-ui;min-width:28px;text-align:center}#vMan .t{font:700 16px/1.2 system-ui}#vMan .s{font:500 13px/1.2 system-ui;opacity:.9}
+#vLeg{position:absolute;z-index:5;right:10px;bottom:28px;background:#fffe;border-radius:10px;padding:6px 9px;font:600 12px/1.6 system-ui;color:#0f172a}
+#vLeg i{display:inline-block;width:20px;height:6px;border-radius:3px;vertical-align:middle;margin-right:6px}
+.kaleo-nom{background:#fffe;padding:1px 5px;border-radius:5px;box-shadow:0 1px 3px rgba(0,0,0,.25)}
 #rue .barre{display:flex;align-items:center;gap:10px;padding:10px 12px;color:#fff;font-size:15px}
 #rue .barre b{flex:1;line-height:1.25}
 #rue .barre button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:9px 14px;background:#fff;color:#101828;cursor:pointer}
@@ -707,6 +720,7 @@ footer{margin:22px 14px 0;font-size:12px;color:var(--mut);line-height:1.5}
 <header><div class="r1"><div class="badge" id="badge"></div><div><div class="kick">INFO DÉVIATION</div><h1 id="lieu"></h1></div></div><div class="obj" id="obj"></div><span class="st" id="st"></span></header>
 <div class="when" id="when"></div>
 <div class="seg" id="seg"></div>
+<button type="button" class="jouer" id="btnJouer" onclick="jouerDeviation()">▶ Jouer la déviation (vidéo 3D)</button>
 <div class="mapw"><div id="map"></div><div class="mbtn"><button onclick="locate()">◎ Ma position</button><button onclick="fit()">⤢ Tout voir</button></div></div>
 <div class="leg" id="leg"></div>
 <div class="kpis" id="kpis"></div><div class="hyp" id="hyp"></div>
@@ -794,6 +808,8 @@ function pick(k){document.querySelectorAll('#steps li').forEach(function(li,j){l
 document.getElementById('seg').innerHTML=DEV.sens.map(function(s,i){return '<button onclick="show('+i+')">'+esc(s.nom)+'</button>'}).join('');
 show(0);
 </script>
+<div id="video"><div class="barre"><b id="vTitre">Déviation en vidéo</b><button type="button" class="vert" id="vPause" onclick="pauseVideo()">⏸ Pause</button><button type="button" id="vVite" onclick="accelererVideo()">⏩ ×2</button><button type="button" onclick="fermerVideo()">✕ Fermer</button></div>
+<div id="carte3d"><div id="v3d" style="position:absolute;inset:0"></div><div id="vMan"><div class="f" id="vFl"></div><div><div class="t" id="vRue"></div><div class="s" id="vDist"></div></div></div><div id="vLeg"><div><i style="background:#1d6fd8"></i>Itinéraire normal</div><div><i style="background:#16a34a"></i>Déviation</div><div><i style="background:repeating-linear-gradient(90deg,#dc2626 0 5px,#fff 5px 10px);outline:1px solid #dc2626"></i>Itinéraire barré</div></div></div></div>
 <div id="rue"><div class="barre"><b id="rueTitre"></b><button type="button" onclick="fermerRue()">✕ Fermer</button></div><div id="sv"></div><div class="pied" id="ruePied"></div></div>
 <!-- clé Google Maps (restreinte à cette adresse) : fichier config.js déposé à part, jamais dans ce fichier -->
 <script src="config.js"></script>
@@ -823,6 +839,37 @@ show(0);
     var w = 26 + t.length * 13;
     return 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="' + w + '" height="56"><rect x="2" y="2" rx="12" width="' + (w - 4) + '" height="40" fill="' + c + '" stroke="#fff" stroke-width="3"/><path d="M' + (w / 2 - 8) + ' 42 L' + (w / 2) + ' 54 L' + (w / 2 + 8) + ' 42 Z" fill="' + c + '"/><text x="' + (w / 2) + '" y="29" font-family="Arial,sans-serif" font-size="20" font-weight="bold" fill="#fff" text-anchor="middle">' + t + '</text></svg>');
   }
+  // directions du virage k : arrivée, sortie, point de vue (testable depuis la console : planVirage(DEV.sens[0], 3))
+  function planVirage(s, k) {
+    var e = s.etapes[k], t = s.deviation || [];
+    var tmp = document.createElement('div'); tmp.innerHTML = e.txt; var texte = tmp.textContent;
+    // virage sur le tracé, point de vue 12 m avant (rue de sortie visible), direction de sortie d'après le tracé (15 m après le virage)
+    var i = 0, m = 1e9; t.forEach(function (q, j) { var x = d(q, e.pos); if (x < m) { m = x; i = j; } });
+    var j = i; while (j > 0 && d(t[j], e.pos) < 12) j--;
+    var avant = t[j] || e.pos, js = i; while (js < t.length - 1 && d(t[js], e.pos) < 15) js++;
+    // la flèche doit tourner du côté annoncé par la consigne (gauche / droite / tout droit)
+    var tourne = /gauche/i.test(texte) ? -1 : /droite/i.test(texte) ? 1 : 0;
+    // à distance mm du virage le long d'une polyligne (en remontant depuis la fin si arriere)
+    function aDistance(l, mm, arriere) { var q = arriere ? l.slice().reverse() : l; for (var u = 0; u < q.length; u++) if (d(q[u], e.pos) >= mm) return q[u]; return null; }
+    // direction d'arrivée : le tracé dévié avant le virage ; première étape : l'itinéraire normal avant la sortie (« approche »)
+    var capEntreePlan = null, capSortiePlan = null;
+    if (d(avant, e.pos) > 2) capEntreePlan = cap(avant, e.pos);
+    else if (s.approche && s.approche.length > 1) { var pa = aDistance(s.approche, 12, true); if (pa) { capEntreePlan = cap(pa, e.pos); avant = aDistance(s.approche, 12, true) || pa; } }
+    // direction de sortie : le tracé dévié après le virage ; dernière étape : l'itinéraire normal après le retour (« suite »)
+    if (js > i && d(t[js], e.pos) > 2) capSortiePlan = cap(e.pos, t[js]);
+    else if (s.suite && s.suite.length > 1) { var ps = aDistance(s.suite, 12, false); if (ps) capSortiePlan = cap(e.pos, ps); }
+    // données sans approche / suite (avant la v0.6.2 du traceur) : on déduit le côté manquant de la consigne
+    if (capEntreePlan === null && capSortiePlan === null) capEntreePlan = capSortiePlan = 0;
+    if (capEntreePlan === null) {
+      capEntreePlan = (capSortiePlan - tourne * 90 + 360) % 360;
+      avant = [e.pos[0] - Math.cos(capEntreePlan * R) * 12 / 111195, e.pos[1] - Math.sin(capEntreePlan * R) * 12 / (111195 * Math.cos(e.pos[0] * R))];
+    }
+    if (capSortiePlan === null) capSortiePlan = (capEntreePlan + tourne * 90 + 360) % 360;
+    function coherent(cs, ce) { var v = ((cs - (ce === undefined ? capEntreePlan : ce) + 540) % 360) - 180; return tourne < 0 ? v < -25 && v > -160 : tourne > 0 ? v > 25 && v < 160 : Math.abs(v) < 45; }
+    if (!coherent(capSortiePlan)) capSortiePlan = (capEntreePlan + tourne * 90 + 360) % 360;
+    return { e: e, texte: texte, tourne: tourne, avant: avant, capEntreePlan: capEntreePlan, capSortiePlan: capSortiePlan, coherent: coherent };
+  }
+  window.planVirage = planVirage;
   function ouvrir(k) {
     var s = DEV.sens[cur], e = s.etapes[k], t = s.deviation || [];
     var tmp = document.createElement('div'); tmp.innerHTML = e.txt; var texte = tmp.textContent;
@@ -831,11 +878,7 @@ show(0);
     document.getElementById('ruePied').innerHTML = 'Chargement de la vue…';
     var zone = document.getElementById('sv'); zone.innerHTML = '';
     document.getElementById('rue').classList.add('on');
-    // virage sur le tracé, point de vue 18 m avant, direction de sortie d'après le tracé (15 m après le virage)
-    var i = 0, m = 1e9; t.forEach(function (q, j) { var x = d(q, e.pos); if (x < m) { m = x; i = j; } });
-    var j = i; while (j > 0 && d(t[j], e.pos) < 18) j--;
-    var avant = t[j] || e.pos, js = i; while (js < t.length - 1 && d(t[js], e.pos) < 15) js++;
-    var capSortiePlan = js > i && d(t[js], e.pos) > 2 ? cap(e.pos, t[js]) : cap(avant, e.pos);
+    var P = planVirage(s, k), avant = P.avant, capSortiePlan = P.capSortiePlan, coherent = P.coherent;
     function plusProche(liens, c, tol) {   // direction de rue Google la plus proche d'un cap (liens Street View)
       var best = null, ec = tol; (liens || []).forEach(function (l) { var x = Math.abs(((l.heading - c + 540) % 360) - 180); if (x < ec) { ec = x; best = l.heading; } });
       return best === null ? c : best;
@@ -846,28 +889,74 @@ show(0);
       // 1) le carrefour tel que Google le connaît : position exacte et directions des rues qui en partent
       chercher(e.pos, 20, function (dj, sj) {
         var J = e.pos, capSortie = capSortiePlan;
-        if (sj === g.StreetViewStatus.OK) { J = [dj.location.latLng.lat(), dj.location.latLng.lng()]; capSortie = plusProche(dj.links, capSortiePlan, 60); }
-        // 2) la vue : au plus près, 18 m avant le virage (25 m de recherche, puis 60 m)
-        chercher(avant, 25, function (d1, s1) { if (s1 === g.StreetViewStatus.OK) afficher(d1, J, capSortie); else chercher(avant, 60, function (d2, s2) { if (s2 === g.StreetViewStatus.OK) afficher(d2, J, capSortie); else vide(); }); });
+        // l'image Google la plus proche n'est pas toujours au carrefour : on ne la retient qu'à moins de 12 m du virage,
+        // et sa direction de rue seulement si elle tourne du bon côté
+        if (sj === g.StreetViewStatus.OK) {
+          var Jg = [dj.location.latLng.lat(), dj.location.latLng.lng()];
+          if (d(Jg, e.pos) < 12) { J = Jg; var cg = plusProche(dj.links, capSortiePlan, 50); if (coherent(cg)) capSortie = cg; }
+        }
+        // 2) la vue d'approche : au plus près, 12 m avant le virage (15 m de recherche, puis 30, puis 60)
+        var auCarrefour = sj === g.StreetViewStatus.OK && d(J, e.pos) < 12 ? dj : null;
+        function approche() {
+          chercher(avant, 15, function (d1, s1) {
+            if (s1 === g.StreetViewStatus.OK) return afficher(d1, J, capSortie, false, auCarrefour);
+            chercher(avant, 30, function (d2, s2) {
+              if (s2 === g.StreetViewStatus.OK) return afficher(d2, J, capSortie, false, auCarrefour);
+              chercher(avant, 60, function (d3, s3) { if (s3 === g.StreetViewStatus.OK) afficher(d3, J, capSortie, false, auCarrefour); else vide(); });
+            });
+          });
+        }
+        window.vueApproche = approche;
+        window.vueCarrefour = function () { if (auCarrefour) afficher(auCarrefour, J, capSortie, true, auCarrefour); };
+        approche();
       });
       function vide() { zone.innerHTML = '<div class="vide">Pas de vue Street View à cet endroit.<br>' + lien + '</div>'; document.getElementById('ruePied').innerHTML = ''; }
-      function afficher(data, J, capSortie) {
+      function afficher(data, J, capSortie, carrefour, auCarrefour) {
+        zone.innerHTML = '';
         var pos = [data.location.latLng.lat(), data.location.latLng.lng()];
-        pano = new g.StreetViewPanorama(zone, { pano: data.location.pano, pov: { heading: plusProche(data.links, cap(pos, J), 45), pitch: -12 }, zoom: 1, addressControl: false, fullscreenControl: false, motionTracking: false, motionTrackingControl: false, showRoadLabels: true, linksControl: true, clickToGo: true });
+        var regard = carrefour ? plusProche(data.links, capSortie, 50) : plusProche(data.links, cap(pos, J), 45);
+        pano = new g.StreetViewPanorama(zone, { pano: data.location.pano, pov: { heading: regard, pitch: -12 }, zoom: 1, addressControl: false, fullscreenControl: false, motionTracking: false, motionTrackingControl: false, showRoadLabels: true, linksControl: true, clickToGo: true });
         var couleur = s.couleur || '#1d6fd8';
         function decaler(q, cp, mm) { var kx = 111195 * Math.cos(q[0] * R); return [q[0] + Math.cos(cp * R) * mm / 111195, q[1] + Math.sin(cp * R) * mm / kx]; }
-        // flèche au sol : part sous la caméra dans l'axe de la rue (direction Google), tourne au carrefour Google
-        // dans la direction de la rue de sortie (direction Google), finit 10 m plus loin par une pointe
+        // flèche au sol, construite en mètres autour de la caméra (x vers l'est, y vers le nord) :
+        // - la voiture Google roule sur sa voie : la bande part sous la caméra et suit l'axe de la rue (direction Google),
+        //   au lieu de viser le point du carrefour (qui est au milieu de la chaussée, parfois sur le stationnement) ;
+        // - elle tourne là où cet axe croise la rue de sortie, prise 1,5 m à droite de son milieu (voie du bus) ;
+        // - elle finit 10 m plus loin dans la rue de sortie par une pointe.
+        function versLatLon(cam, x, y) { return [cam[0] + y / 111195, cam[1] + x / (111195 * Math.cos(cam[0] * R))]; }
+        function versXY(cam, q) { return [(q[1] - cam[1]) * 111195 * Math.cos(cam[0] * R), (q[0] - cam[0]) * 111195]; }
         function geometrie(cam) {
-          var capEntree = plusProche(pano.getLinks(), cap(cam, J), 35), L = d(cam, J), r = Math.min(5, L * 0.35), pts = [];
-          var a = decaler(J, capEntree + 180, r), b = decaler(J, capSortie, r), fin = decaler(J, capSortie, 10);
-          var depart = decaler(cam, cap(cam, a), 2.5);
-          var nA = Math.max(2, Math.round(d(depart, a) / 1.5));
-          for (var u = 0; u <= nA; u++) pts.push([depart[0] + (a[0] - depart[0]) * u / nA, depart[1] + (a[1] - depart[1]) * u / nA]);
-          for (var v = 1; v <= 10; v++) { var tt = v / 10, p0 = (1 - tt) * (1 - tt), p1 = 2 * (1 - tt) * tt, p2 = tt * tt; pts.push([p0 * a[0] + p1 * J[0] + p2 * b[0], p0 * a[1] + p1 * J[1] + p2 * b[1]]); }
-          var nB = Math.max(2, Math.round(d(b, fin) / 1.5));
-          for (var w2 = 1; w2 <= nB; w2++) pts.push([b[0] + (fin[0] - b[0]) * w2 / nB, b[1] + (fin[1] - b[1]) * w2 / nB]);
-          return { pts: pts, pointe: [decaler(fin, capSortie - 90, 2), decaler(fin, capSortie, 5), decaler(fin, capSortie + 90, 2)] };
+          if (carrefour) {
+            // vue au carrefour : la bande part sous la caméra dans la rue de sortie (direction Google) sur 14 m
+            var cs0 = plusProche(pano.getLinks(), capSortie, 50), u0 = [Math.sin(cs0 * R), Math.cos(cs0 * R)], n0 = [u0[1], -u0[0]], pc = [];
+            for (var a0 = 2.5; a0 <= 14; a0 += 1.5) pc.push([u0[0] * a0, u0[1] * a0]);
+            var F0 = [u0[0] * 14, u0[1] * 14];
+            var ll0 = function (p) { return versLatLon(cam, p[0], p[1]); };
+            return { capEntree: null, pts: pc.map(ll0), pointe: [[F0[0] - n0[0] * 2, F0[1] - n0[1] * 2], [F0[0] + u0[0] * 5, F0[1] + u0[1] * 5], [F0[0] + n0[0] * 2, F0[1] + n0[1] * 2]].map(ll0) };
+          }
+          var capEntree = plusProche(pano.getLinks(), cap(cam, J), 35);
+          var de = [Math.sin(capEntree * R), Math.cos(capEntree * R)], ds = [Math.sin(capSortie * R), Math.cos(capSortie * R)];
+          var jx = versXY(cam, J), OFF = 1.5;
+          var js = [jx[0] + OFF * ds[1], jx[1] - OFF * ds[0]];   // milieu de la rue de sortie décalé à droite
+          // coin = intersection de l'axe d'entrée (passant par la caméra) et de la voie de sortie
+          var det = de[0] * ds[1] - de[1] * ds[0], L;
+          if (Math.abs(det) > 0.34) L = (js[0] * ds[1] - js[1] * ds[0]) / det;   // virage franc (> 20°)
+          else L = jx[0] * de[0] + jx[1] * de[1];                                // presque tout droit : au droit du carrefour
+          L = Math.max(L, 6);
+          var C = [de[0] * L, de[1] * L], r = Math.min(5, L * 0.35), pts = [];
+          // carrefour loin (> 18 m) : la rue de sortie est souvent cachée par les façades, la pointe reste au coin
+          var sortieM = L > 18 ? 4 : 10; r = Math.min(r, sortieM - 1);
+          var A = [C[0] - de[0] * r, C[1] - de[1] * r], B = [C[0] + ds[0] * r, C[1] + ds[1] * r], F = [C[0] + ds[0] * sortieM, C[1] + ds[1] * sortieM];
+          var D0 = [de[0] * 2.5, de[1] * 2.5];
+          var nA = Math.max(2, Math.round((L - r - 2.5) / 1.5));
+          for (var u = 0; u <= nA; u++) pts.push([D0[0] + (A[0] - D0[0]) * u / nA, D0[1] + (A[1] - D0[1]) * u / nA]);
+          for (var v = 1; v <= 10; v++) { var tt = v / 10, p0 = (1 - tt) * (1 - tt), p1 = 2 * (1 - tt) * tt, p2 = tt * tt; pts.push([p0 * A[0] + p1 * C[0] + p2 * B[0], p0 * A[1] + p1 * C[1] + p2 * B[1]]); }
+          var nB = Math.max(2, Math.round((sortieM - r) / 1.5));
+          for (var w2 = 1; w2 <= nB; w2++) pts.push([B[0] + (F[0] - B[0]) * w2 / nB, B[1] + (F[1] - B[1]) * w2 / nB]);
+          var nrm = [ds[1], -ds[0]];
+          var pointe = [[F[0] - nrm[0] * 2, F[1] - nrm[1] * 2], [F[0] + ds[0] * 5, F[1] + ds[1] * 5], [F[0] + nrm[0] * 2, F[1] + nrm[1] * 2]];
+          var ll = function (p) { return versLatLon(cam, p[0], p[1]); };
+          return { capEntree: capEntree, pts: pts.map(ll), pointe: pointe.map(ll) };
         }
         var NS = 'http://www.w3.org/2000/svg', calque = document.createElementNS(NS, 'svg');
         calque.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3');
@@ -877,10 +966,25 @@ show(0);
         calque.appendChild(trait);
         zone.style.position = 'relative';
         var HC = 2.5;   // hauteur de la caméra Google (m)
-        function projeter(q, cam, pov, f, w, h) {
-          var dd = Math.max(d(cam, q), 2), yaw = ((cap(cam, q) - pov.heading + 540) % 360) - 180;
+        // relief : altitude de chaque point de la flèche par rapport au sol sous la caméra (Google Elevation),
+        // demandée une fois par position de la caméra ; en attendant (ou en cas d'échec), rue supposée plate
+        var alt = { cle: '', pts: null, pointe: null }, altitude = new g.ElevationService();
+        function demanderRelief(cam, geo) {
+          var cle = cam[0].toFixed(6) + ',' + cam[1].toFixed(6);
+          if (alt.cle === cle) return;
+          alt = { cle: cle, pts: null, pointe: null };
+          var lieux = [cam].concat(geo.pts, geo.pointe).map(function (q) { return { lat: q[0], lng: q[1] }; });
+          altitude.getElevationForLocations({ locations: lieux }, function (r, st) {
+            if (st !== 'OK' || !r || r.length !== lieux.length || alt.cle !== cle) return;
+            var z0 = r[0].elevation, z = r.slice(1).map(function (x) { return Math.max(-8, Math.min(8, x.elevation - z0)); });
+            alt.pts = z.slice(0, geo.pts.length); alt.pointe = z.slice(geo.pts.length);
+            dessiner();
+          });
+        }
+        function projeter(q, cam, pov, f, w, h, zq) {
+          var dd = Math.max(d(cam, q), 2), cq = cap(cam, q), yaw = ((cq - pov.heading + 540) % 360) - 180;
           if (Math.abs(yaw) > 80) return null;
-          var el = -Math.atan(HC / dd) / R - pov.pitch;
+          var el = Math.atan(((zq || 0) - HC) / dd) / R - pov.pitch;
           return [w / 2 + f * Math.tan(yaw * R), h / 2 - f * Math.tan(el * R) / Math.cos(yaw * R), dd];
         }
         function dessiner() {
@@ -888,6 +992,9 @@ show(0);
           var pv = pano.getPov(), z = pano.getZoom() || 1, fov = 180 / Math.pow(2, z), w = zone.clientWidth, h = zone.clientHeight;
           var f = (w / 2) / Math.tan(fov / 2 * R), cp = pano.getPosition(), cam = [cp.lat(), cp.lng()];
           var geo = geometrie(cam), pts = geo.pts;
+          if (!carrefour && !coherent(capSortie, geo.capEntree)) { trait.setAttribute('d', ''); return; }   // mieux vaut pas de flèche qu'une flèche fausse
+          demanderRelief(cam, geo);
+          var zp = alt.pts && alt.pts.length === pts.length ? alt.pts : null, zt = zp && alt.pointe ? alt.pointe : null;
           var dpath = '', gauche = [], droite = [], kx = 111195 * Math.cos(cam[0] * R), DEMI = 0.7;
           function fermer() { if (gauche.length > 1) dpath += ' M' + gauche.concat(droite.reverse()).map(function (r) { return r[0].toFixed(1) + ' ' + r[1].toFixed(1); }).join(' L') + ' Z'; gauche = []; droite = []; }
           for (var n2 = 0; n2 < pts.length; n2++) {
@@ -895,12 +1002,12 @@ show(0);
             var dy = (q2[0] - q1[0]) * 111195, dx = (q2[1] - q1[1]) * kx, lg = Math.hypot(dx, dy) || 1;
             var ox = -dy / lg * DEMI, oy = dx / lg * DEMI;
             var gq = [q[0] + oy / 111195, q[1] + ox / kx], dq = [q[0] - oy / 111195, q[1] - ox / kx];
-            var rg = projeter(gq, cam, pv, f, w, h), rd = projeter(dq, cam, pv, f, w, h);
+            var zq = zp ? zp[n2] : 0, rg = projeter(gq, cam, pv, f, w, h, zq), rd = projeter(dq, cam, pv, f, w, h, zq);
             if (!rg || !rd || rg[1] < 0 || rd[1] < 0) { fermer(); continue; }
             gauche.push(rg); droite.push(rd);
           }
           fermer();
-          var pp = geo.pointe.map(function (q) { return projeter(q, cam, pv, f, w, h); });
+          var pp = geo.pointe.map(function (q, n3) { return projeter(q, cam, pv, f, w, h, zt ? zt[n3] : 0); });
           if (pp.every(function (r) { return r && r[1] >= 0; })) dpath += ' M' + pp.map(function (r) { return r[0].toFixed(1) + ' ' + r[1].toFixed(1); }).join(' L') + ' Z';
           trait.setAttribute('d', dpath);
         }
@@ -912,10 +1019,151 @@ show(0);
         ['pov_changed', 'zoom_changed', 'position_changed', 'links_changed'].forEach(function (ev) { pano.addListener(ev, dessiner); });
         window.addEventListener('resize', dessiner);
         var date = data.imageDate ? ' · image Google du ' + data.imageDate.split('-').reverse().join('/') : '';
-        document.getElementById('ruePied').innerHTML = 'Vue à ' + Math.round(d(pos, J)) + ' m du virage' + date + ' · tracé indicatif · ' + lien;
+        var bascule = !auCarrefour ? '' : carrefour ? ' · <a href="#" onclick="vueApproche();return false">◀ Vue d’approche</a>' : ' · <a href="#" onclick="vueCarrefour();return false">Vue au carrefour ▶</a>';
+        document.getElementById('ruePied').innerHTML = (carrefour ? 'Au carrefour, vers la rue de sortie' : 'Vue à ' + Math.round(d(pos, J)) + ' m du virage') + date + bascule + ' · ' + lien;
       }
     }, function () { zone.innerHTML = '<div class="vide">Google Street View indisponible.<br>' + lien + '</div>'; });
   }
+
+  // ------------------------------------------------------------------------------------------------
+  // « Jouer la déviation » (30/10/2026) : vidéo 3D sur la carte vectorielle Google (bâtiments en volumes).
+  // Départ 2 arrêts avant la déviation sur l'itinéraire normal (bleu), déviation (vert), reprise de l'itinéraire normal.
+  // Les tracés sont recalés sur les rues Google (Routes API) pour être posés exactement sur la chaussée de la carte.
+  // ------------------------------------------------------------------------------------------------
+  document.getElementById('btnJouer').style.display = 'block';
+  var BLEU = '#1d6fd8', VERT = '#16a34a', v3 = null;
+  function dist(a, b) { return d(a, b); }
+  function decalerV(q, cp, m) { return [q[0] + Math.cos(cp * R) * m / 111195, q[1] + Math.sin(cp * R) * m / (111195 * Math.cos(q[0] * R))]; }
+  function cumul(l) { var c = [0]; for (var i = 1; i < l.length; i++) c.push(c[i - 1] + dist(l[i - 1], l[i])); return c; }
+  function pointA(l, c, x) { var i = 0; while (i < l.length - 2 && c[i + 1] < x) i++; var t = c[i + 1] > c[i] ? (x - c[i]) / (c[i + 1] - c[i]) : 0; t = Math.max(0, Math.min(1, t)); return [l[i][0] + t * (l[i + 1][0] - l[i][0]), l[i][1] + t * (l[i + 1][1] - l[i][1])]; }
+  function abscisse(l, c, p) { var x = 0, m = 1e9; l.forEach(function (q, i) { var dd = dist(q, p); if (dd < m) { m = dd; x = c[i]; } }); return x; }
+  var texteDe = function (h) { var t = document.createElement('div'); t.innerHTML = h; return t.textContent; };
+  var tourneDe = function (txt) { return /gauche/i.test(txt) ? -1 : /droite/i.test(txt) ? 1 : 0; };
+  var gll = function (p) { return { lat: p[0], lng: p[1] }; };
+  // recalage : Google recalcule l'itinéraire en passant par nos points, on ajoute un point de passage là où il s'écarte
+  // de plus de 15 m de notre tracé ; à défaut de calage, on garde notre tracé
+  function decode(s2) { var i = 0, la = 0, lo = 0, r = []; while (i < s2.length) { for (var k = 0; k < 2; k++) { var b, sh = 0, v = 0; do { b = s2.charCodeAt(i++) - 63; v |= (b & 31) << sh; sh += 5; } while (b >= 32); var dd = v & 1 ? ~(v >> 1) : v >> 1; if (k) lo += dd; else la += dd; } r.push([la / 1e5, lo / 1e5]); } return r; }
+  function dPoly(p, poly) { var m = 1e9; for (var i = 1; i < poly.length; i++) { var a = poly[i - 1], b = poly[i], n = Math.max(1, Math.ceil(dist(a, b) / 4)); for (var u = 0; u <= n; u++) { var x = dist(p, [a[0] + (b[0] - a[0]) * u / n, a[1] + (b[1] - a[1]) * u / n]); if (x < m) m = x; } } return m; }
+  function densifier(l, pas) { var r = [l[0]]; for (var i = 1; i < l.length; i++) { var n = Math.max(1, Math.ceil(dist(l[i - 1], l[i]) / pas)); for (var u = 1; u <= n; u++) r.push([l[i - 1][0] + (l[i][0] - l[i - 1][0]) * u / n, l[i - 1][1] + (l[i][1] - l[i - 1][1]) * u / n]); } return r; }
+  function routeGoogle(L, idx) {
+    var loc = function (p, q2) { var o = { latLng: { latitude: p[0], longitude: p[1] } }; if (q2) o.heading = Math.round(cap(p, q2)); return o; };
+    var corps = { origin: { location: loc(L[0], L[1]) }, destination: { location: loc(L[L.length - 1]) }, intermediates: idx.map(function (i) { return { location: loc(L[i], L[i + 1]), via: true }; }), travelMode: 'DRIVE', routingPreference: 'TRAFFIC_UNAWARE' };
+    return fetch('https://routes.googleapis.com/directions/v2:computeRoutes', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Goog-Api-Key': CLE, 'X-Goog-FieldMask': 'routes.polyline.encodedPolyline' }, body: JSON.stringify(corps) })
+      .then(function (r) { return r.json(); }).then(function (j) { if (!j.routes) throw new Error('Routes'); return decode(j.routes[0].polyline.encodedPolyline); });
+  }
+  function recaler(l) {
+    if (!l || l.length < 2) return Promise.resolve(l || []);
+    var L = densifier(l, 10), idx = [], essai = 0;
+    function tour() {
+      return routeGoogle(L, idx).then(function (poly) {
+        var pire = -1, ec = 15;
+        for (var i = 2; i < L.length - 2; i++) { var x = dPoly(L[i], poly); if (x > ec) { ec = x; pire = i; } }
+        if (pire < 0) return poly;
+        if (idx.length >= 10 || ++essai >= 9) return l;
+        idx.push(pire); idx.sort(function (a, b) { return a - b; }); return tour();
+      });
+    }
+    return tour().catch(function () { return l; });
+  }
+  // les trois morceaux : itinéraire normal avant (depuis 2 arrêts avant), déviation, itinéraire normal après
+  // (anciennes données sans approche ni suite : 30 m de rue recréés du côté annoncé par la consigne)
+  function preparer(s2) {
+    if (s2.__video) return s2.__video;
+    var dv = s2.deviation, a = s2.approche, b = s2.suite;
+    if (!a || a.length < 2) { var c0 = cap(dv[0], dv[Math.min(3, dv.length - 1)]), t0 = tourneDe(texteDe(s2.etapes[0].txt)); a = [decalerV(dv[0], c0 - t0 * 90 + 180, 30), dv[0]]; }
+    if (!b || b.length < 2) { var n = dv.length, c1 = cap(dv[Math.max(0, n - 4)], dv[n - 1]), t1 = tourneDe(texteDe(s2.etapes[s2.etapes.length - 1].txt)); b = [dv[n - 1], decalerV(dv[n - 1], c1 + t1 * 90, 30)]; }
+    s2.__video = Promise.all([recaler(a), recaler(dv), recaler(b), recaler(s2.normal)]).then(function (r) {
+      var av = r[0], de = [r[0][r[0].length - 1]].concat(r[1]), ap = [de[de.length - 1]].concat(r[2]);
+      var tout = av.concat(de.slice(1), ap.slice(1)), c = cumul(tout);
+      return { avant: av, dev: de, apres: ap, ferme: r[3], tout: tout, c: c, xDebut: c[av.length - 1], xFin: c[av.length + de.length - 2] };
+    });
+    return s2.__video;
+  }
+  function bandeau(fl, rue2, sous, fond) {
+    document.getElementById('vFl').textContent = fl; document.getElementById('vRue').textContent = rue2; document.getElementById('vDist').textContent = sous;
+    document.getElementById('vMan').style.background = fond;
+  }
+  var nomRue = function (t) { t = t.replace(/^Après « [^»]+ » : /, '').replace(/ : itinéraire normal.*/, ''); return t.charAt(0).toUpperCase() + t.slice(1); };
+  var flecheDe = function (t) { return /droite/i.test(t) ? '↱' : /gauche/i.test(t) ? '↰' : '↑'; };
+  function initialiser() {
+    var g = google.maps;
+    var carte = new g.Map(document.getElementById('v3d'), { mapId: 'DEMO_MAP_ID', renderingType: g.RenderingType.VECTOR, tilt: 67.5, heading: 0, zoom: 18, center: gll(DEV.sens[0].deviation[0]), disableDefaultUI: true, gestureHandling: 'greedy', clickableIcons: false, keyboardShortcuts: false });
+    function trait(couleur, z) { return { bord: new g.Polyline({ map: carte, strokeColor: '#ffffff', strokeWeight: 15, zIndex: z }), coul: new g.Polyline({ map: carte, strokeColor: couleur, strokeWeight: 10, zIndex: z + 1 }) }; }
+    var tA = trait(BLEU, 1), tD = trait(VERT, 3), tS = trait(BLEU, 1), t0 = performance.now();
+    // itinéraire barré : fond blanc à rayures rouges (tirets rouges serrés sur un trait blanc), comme sur la carte
+    var fBord = new g.Polyline({ map: carte, strokeColor: '#dc2626', strokeWeight: 15, zIndex: 0 });
+    var fBlanc = new g.Polyline({ map: carte, strokeColor: '#ffffff', strokeWeight: 11, zIndex: 0 });
+    var fRayures = new g.Polyline({ map: carte, strokeOpacity: 0, zIndex: 0, icons: [{ icon: { path: 'M -1,0 1,0', strokeColor: '#dc2626', strokeOpacity: 1, strokeWeight: 7, scale: 2.2 }, offset: '0', repeat: '12px' }] });
+    var barriere = 'data:image/svg+xml;charset=UTF-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="56" height="34"><defs><pattern id="r" width="12" height="12" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="12" height="12" fill="#fff"/><rect width="6" height="12" fill="#dc2626"/></pattern></defs><rect x="2" y="2" width="52" height="18" rx="3" fill="url(#r)" stroke="#dc2626" stroke-width="2.5"/><rect x="9" y="20" width="4" height="12" fill="#475569"/><rect x="43" y="20" width="4" height="12" fill="#475569"/></svg>');
+    var barrieres = [0, 1].map(function () { return new g.Marker({ map: carte, clickable: false, zIndex: 6, icon: { url: barriere, scaledSize: new g.Size(56, 34), anchor: new g.Point(28, 32) } }); });
+    setInterval(function () { if (document.getElementById('video').classList.contains('on')) tD.coul.setOptions({ strokeOpacity: 0.72 + 0.28 * Math.sin((performance.now() - t0) / 280) }); }, 80);
+    var bus = new g.Marker({ map: carte, clickable: false, zIndex: 9, icon: { path: g.SymbolPath.CIRCLE, scale: 10, fillColor: '#ffffff', fillOpacity: 1, strokeColor: '#0f172a', strokeWeight: 4 } });
+    var reperes = [];
+    function repere(pos, nom, fond, txt) {
+      reperes.push(new g.Marker({ map: carte, position: gll(pos), clickable: false, zIndex: 8, label: { text: txt, color: '#fff', fontSize: '11px', fontWeight: '800' }, icon: { path: g.SymbolPath.CIRCLE, scale: 9, fillColor: fond, fillOpacity: 1, strokeColor: '#fff', strokeWeight: 2, labelOrigin: new g.Point(0, 0) } }));
+      reperes.push(new g.Marker({ map: carte, position: gll(pos), clickable: false, zIndex: 7, icon: { path: 'M 0 0 L 0 0', scale: 1, strokeOpacity: 0, labelOrigin: new g.Point(0, -24) }, label: { text: nom, color: '#0f172a', fontSize: '12px', fontWeight: '700', className: 'kaleo-nom' } }));
+    }
+    return { g: g, carte: carte, tA: tA, tD: tD, tS: tS, bus: bus, dessiner: function (s2, m) {
+      [[tA, m.avant], [tD, m.dev], [tS, m.apres]].forEach(function (x) { var p = x[1].map(gll); x[0].bord.setPath(p); x[0].coul.setPath(p); });
+      var pf = (m.ferme || []).map(gll); fBord.setPath(pf); fBlanc.setPath(pf); fRayures.setPath(pf);
+      // panneaux posés 12 m à l'intérieur du tronçon fermé, à l'entrée et à la sortie
+      if (m.ferme && m.ferme.length > 1) { var cf = cumul(m.ferme), lf = cf[cf.length - 1]; barrieres[0].setPosition(gll(pointA(m.ferme, cf, Math.min(12, lf / 3)))); barrieres[1].setPosition(gll(pointA(m.ferme, cf, Math.max(lf - 12, lf * 2 / 3)))); }
+      reperes.forEach(function (r) { r.setMap(null); }); reperes = [];
+      (s2.arretsNormal || []).forEach(function (a) { repere(a.pos, a.nom, BLEU, '•'); });
+      (s2.arrets || []).forEach(function (a) { if (a.statut === 'non') repere(a.pos, a.nom + ' (non desservi)', '#dc2626', '✕'); else if (a.statut === 'dev') repere(a.pos, a.nom, VERT, '•'); });
+    } };
+  }
+  var lecture = null;
+  function arreterVideo() { if (lecture) { cancelAnimationFrame(lecture.raf); lecture = null; } }
+  window.fermerVideo = function () { arreterVideo(); document.getElementById('video').classList.remove('on'); };
+  window.pauseVideo = function () {
+    var b = document.getElementById('vPause');
+    if (!lecture) return;
+    if (lecture.pause) { lecture.pause = false; lecture.debut = performance.now() - lecture.x / lecture.vitesse * 1000; b.textContent = '⏸ Pause'; lecture.raf = requestAnimationFrame(lecture.image); }
+    else if (lecture.fini) { lecture.fini = false; lecture.debut = performance.now(); b.textContent = '⏸ Pause'; lecture.raf = requestAnimationFrame(lecture.image); }
+    else { lecture.pause = true; cancelAnimationFrame(lecture.raf); b.textContent = '▶ Reprendre'; }
+  };
+  // accélérer : ×1 → ×2 → ×4 → ×1 (la vidéo continue du même endroit)
+  var facteur = 1;
+  window.accelererVideo = function () {
+    facteur = facteur === 1 ? 2 : facteur === 2 ? 4 : 1;
+    document.getElementById('vVite').textContent = facteur === 4 ? '×1' : '⏩ ×' + (facteur * 2);
+    if (lecture) { lecture.vitesse = 14 * facteur; lecture.debut = performance.now() - lecture.x / lecture.vitesse * 1000; }
+  };
+  window.jouerDeviation = function () {
+    var s2 = DEV.sens[typeof cur === 'number' ? cur : 0];
+    document.getElementById('video').classList.add('on');
+    document.getElementById('vTitre').textContent = 'Ligne ' + DEV.ligne + ' · ' + s2.nom;
+    document.getElementById('vPause').textContent = '⏸ Pause';
+    bandeau('…', 'Préparation de la vidéo', '', '#334155');
+    arreterVideo();
+    charger().then(function () { if (!v3) v3 = initialiser(); return preparer(s2); }).then(function (m) {
+      v3.dessiner(s2, m);
+      var l = m.tout, c = m.c, total = c[c.length - 1];
+      var etapes = s2.etapes.map(function (e) { return { x: abscisse(l, c, e.pos), txt: texteDe(e.txt) }; });
+      var arretsN = (s2.arretsNormal || []).map(function (a) { return { x: abscisse(l, c, a.pos), nom: a.nom }; });
+      var capLisse = null;
+      lecture = { raf: 0, x: 0, vitesse: 14 * facteur, debut: performance.now(), pause: false, fini: false };   // ~50 km/h, environ 1 min par km
+      lecture.image = function (t) {
+        if (!lecture || lecture.pause) return;
+        var x = Math.min(total, (t - lecture.debut) / 1000 * lecture.vitesse); lecture.x = x;
+        var p = pointA(l, c, x), devant = pointA(l, c, Math.min(total, x + 25)), cp = dist(p, devant) > 1 ? cap(p, devant) : (capLisse || 0);
+        if (capLisse === null) capLisse = cp; else { var dc = ((cp - capLisse + 540) % 360) - 180; capLisse = (capLisse + dc * 0.08 + 360) % 360; }
+        v3.bus.setPosition(gll(p));
+        v3.carte.moveCamera({ center: gll(decalerV(p, capLisse, 20)), heading: capLisse, tilt: 67.5, zoom: 19 });
+        if (x < m.xDebut) {
+          var arr = arretsN.filter(function (a) { return a.x > x && a.x < m.xDebut; })[0];
+          bandeau('↑', 'Itinéraire normal', 'Déviation dans ' + Math.round((m.xDebut - x) / 10) * 10 + ' m' + (arr ? ' · prochain arrêt ' + arr.nom : ''), BLEU);
+        } else if (x <= m.xFin + 5) {
+          var proch = etapes.filter(function (e) { return e.x > x - 5; })[0];
+          if (proch) { var reste = Math.max(0, Math.round((proch.x - x) / 10) * 10); bandeau(flecheDe(proch.txt), nomRue(proch.txt), reste > 0 ? 'dans ' + reste + ' m' : 'maintenant', VERT); }
+        } else bandeau('✓', 'Retour sur l’itinéraire normal', s2.nom, BLEU);
+        if (x >= total) { lecture.fini = true; document.getElementById('vPause').textContent = '↻ Rejouer'; return; }
+        lecture.raf = requestAnimationFrame(lecture.image);
+      };
+      lecture.raf = requestAnimationFrame(lecture.image);
+    }).catch(function () { bandeau('!', 'Vidéo indisponible', 'Google Maps ne répond pas', '#b91c1c'); });
+  };
 })();
 </script>
 </body></html>
