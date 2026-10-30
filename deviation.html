@@ -1067,12 +1067,22 @@ show(0);
   }
   // les trois morceaux : itinéraire normal avant (depuis 2 arrêts avant), déviation, itinéraire normal après
   // (anciennes données sans approche ni suite : 30 m de rue recréés du côté annoncé par la consigne)
+  function cleMemo(s2) { var dv = s2.deviation; return 'kaleo-video-v1|' + (new URLSearchParams(location.search).get('d') || '') + '|' + s2.nom + '|' + DEV.maj + '|' + dv.length + '|' + dv[0] + '|' + dv[dv.length - 1]; }
+  function lireMemo(s2) { try { var t = localStorage.getItem(cleMemo(s2)); return t ? JSON.parse(t) : null; } catch (e) { return null; } }
+  function ecrireMemo(s2, r) {
+    try {
+      var arr = function (l) { return l.map(function (p) { return [+p[0].toFixed(6), +p[1].toFixed(6)]; }); };
+      Object.keys(localStorage).forEach(function (k) { if (k.indexOf('kaleo-video-v1|') === 0 && k.split('|')[1] === cleMemo(s2).split('|')[1] && k.split('|')[2] === s2.nom) localStorage.removeItem(k); });   // anciennes versions
+      localStorage.setItem(cleMemo(s2), JSON.stringify(r.map(arr)));
+    } catch (e) { }
+  }
   function preparer(s2) {
     if (s2.__video) return s2.__video;
     var dv = s2.deviation, a = s2.approche, b = s2.suite;
     if (!a || a.length < 2) { var c0 = cap(dv[0], dv[Math.min(3, dv.length - 1)]), t0 = tourneDe(texteDe(s2.etapes[0].txt)); a = [decalerV(dv[0], c0 - t0 * 90 + 180, 30), dv[0]]; }
     if (!b || b.length < 2) { var n = dv.length, c1 = cap(dv[Math.max(0, n - 4)], dv[n - 1]), t1 = tourneDe(texteDe(s2.etapes[s2.etapes.length - 1].txt)); b = [dv[n - 1], decalerV(dv[n - 1], c1 + t1 * 90, 30)]; }
-    s2.__video = Promise.all([recaler(a), recaler(dv), recaler(b), recaler(s2.normal)]).then(function (r) {
+    var memo = lireMemo(s2);
+    s2.__video = (memo && memo.length === 4 ? Promise.resolve(memo) : Promise.all([recaler(a), recaler(dv), recaler(b), recaler(s2.normal)]).then(function (r) { ecrireMemo(s2, r); return r; })).then(function (r) {
       var av = r[0], de = [r[0][r[0].length - 1]].concat(r[1]), ap = [de[de.length - 1]].concat(r[2]);
       var tout = av.concat(de.slice(1), ap.slice(1)), c = cumul(tout);
       return { avant: av, dev: de, apres: ap, ferme: r[3], tout: tout, c: c, xDebut: c[av.length - 1], xFin: c[av.length + de.length - 2] };
@@ -1087,7 +1097,7 @@ show(0);
   var flecheDe = function (t) { return /droite/i.test(t) ? '↱' : /gauche/i.test(t) ? '↰' : '↑'; };
   function initialiser() {
     var g = google.maps;
-    var carte = new g.Map(document.getElementById('v3d'), { mapId: 'DEMO_MAP_ID', renderingType: g.RenderingType.VECTOR, tilt: 67.5, heading: 0, zoom: 18, center: gll(DEV.sens[0].deviation[0]), disableDefaultUI: true, gestureHandling: 'greedy', clickableIcons: false, keyboardShortcuts: false });
+    var carte = new g.Map(document.getElementById('v3d'), { mapId: '2bda8147cfb1a1af8e13a1e2' /* Map ID « KALEO vidéo déviation » : vectoriel, inclinaison, rotation */, renderingType: g.RenderingType.VECTOR, tilt: 67.5, heading: 0, zoom: 18, center: gll(DEV.sens[0].deviation[0]), disableDefaultUI: true, gestureHandling: 'greedy', clickableIcons: false, keyboardShortcuts: false });
     function trait(couleur, z) { return { bord: new g.Polyline({ map: carte, strokeColor: '#ffffff', strokeWeight: 15, zIndex: z }), coul: new g.Polyline({ map: carte, strokeColor: couleur, strokeWeight: 10, zIndex: z + 1 }) }; }
     var tA = trait(BLEU, 1), tD = trait(VERT, 3), tS = trait(BLEU, 1), t0 = performance.now();
     // itinéraire barré : fond blanc à rayures rouges (tirets rouges serrés sur un trait blanc), comme sur la carte
