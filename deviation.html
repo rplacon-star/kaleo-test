@@ -1030,7 +1030,8 @@ show(0);
   // Départ 2 arrêts avant la déviation sur l'itinéraire normal (bleu), déviation (vert), reprise de l'itinéraire normal.
   // Les tracés sont recalés sur les rues Google (Routes API) pour être posés exactement sur la chaussée de la carte.
   // ------------------------------------------------------------------------------------------------
-  document.getElementById('btnJouer').style.display = 'block';
+  // le bouton n'apparaît qu'une fois la déviation chargée (pas sur « Publication en cours… »)
+  (function montrerBouton() { if (window.DEV && DEV.sens && DEV.sens.length) document.getElementById('btnJouer').style.display = 'block'; else setTimeout(montrerBouton, 300); })();
   var BLEU = '#1d6fd8', VERT = '#16a34a', v3 = null;
   function dist(a, b) { return d(a, b); }
   function decalerV(q, cp, m) { return [q[0] + Math.cos(cp * R) * m / 111195, q[1] + Math.sin(cp * R) * m / (111195 * Math.cos(q[0] * R))]; }
