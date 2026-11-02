@@ -671,6 +671,9 @@ svg.leaflet-image-layer.leaflet-interactive path {
 #video .barre b{flex:1;line-height:1.25}
 #video .barre button{font:inherit;font-weight:700;border:0;border-radius:10px;padding:9px 14px;background:#fff;color:#101828;cursor:pointer}
 #video .barre button.vert{background:#16a34a;color:#fff}
+#vSens{display:none;gap:6px;padding:0 12px 10px}
+#vSens button{flex:1;min-width:0;font:inherit;font-size:14px;font-weight:700;border:2px solid #475467;border-radius:10px;padding:9px 6px;background:transparent;color:#fff;cursor:pointer}
+#vSens button.on{background:#fff;border-color:#fff;color:#101828}
 #carte3d{flex:1;position:relative}
 #vMan{position:absolute;z-index:5;left:10px;top:10px;display:flex;align-items:center;gap:12px;background:#16a34a;color:#fff;border-radius:14px;padding:9px 14px;box-shadow:0 3px 12px rgba(0,0,0,.35);max-width:calc(100% - 40px)}
 #vMan .f{font:800 32px/1 system-ui;min-width:28px;text-align:center}#vMan .t{font:700 16px/1.2 system-ui}#vMan .s{font:500 13px/1.2 system-ui;opacity:.9}
@@ -805,11 +808,11 @@ function rue(s,p){var t=s.deviation||[],d=function(a,b){var kx=Math.cos(a[0]*Mat
  var cap=(Math.atan2((c[1]-v[1])*Math.cos(v[0]*Math.PI/180),c[0]-v[0])*180/Math.PI+360)%360;
  return 'https://www.google.com/maps/@?api=1&map_action=pano&viewpoint='+v[0].toFixed(6)+','+v[1].toFixed(6)+'&heading='+Math.round(cap)+'&pitch=0&fov=80'}
 function pick(k){document.querySelectorAll('#steps li').forEach(function(li,j){li.classList.toggle('on',j==k)});map.setView(DEV.sens[cur].etapes[k].pos,18);document.getElementById('map').scrollIntoView({behavior:'smooth',block:'center'})}
-document.getElementById('seg').innerHTML=DEV.sens.map(function(s,i){return '<button onclick="show('+i+')">'+esc(s.nom)+'</button>'}).join('');
+document.getElementById('seg').innerHTML=DEV.sens.map(function(s,i){return '<button onclick="show('+i+')">'+esc(s.nom)+(DEV.sens.length<2?' · seul sens tracé':'')+'</button>'}).join('');
 show(0);
 </script>
 <div id="video"><div class="barre"><b id="vTitre">Déviation en vidéo</b><button type="button" class="vert" id="vPause" onclick="pauseVideo()">⏸ Pause</button><button type="button" id="vVite" onclick="accelererVideo()">⏩ ×2</button><button type="button" onclick="fermerVideo()">✕ Fermer</button></div>
-<div id="carte3d"><div id="v3d" style="position:absolute;inset:0"></div><div id="vMan"><div class="f" id="vFl"></div><div><div class="t" id="vRue"></div><div class="s" id="vDist"></div></div></div><div id="vLeg"><div><i style="background:#1d6fd8"></i>Itinéraire normal</div><div><i style="background:#16a34a"></i>Déviation</div><div><i style="background:repeating-linear-gradient(90deg,#dc2626 0 5px,#fff 5px 10px);outline:1px solid #dc2626"></i>Itinéraire barré</div></div></div></div>
+<div id="vSens"></div><div id="carte3d"><div id="v3d" style="position:absolute;inset:0"></div><div id="vMan"><div class="f" id="vFl"></div><div><div class="t" id="vRue"></div><div class="s" id="vDist"></div></div></div><div id="vLeg"><div><i style="background:#1d6fd8"></i>Itinéraire normal</div><div><i style="background:#16a34a"></i>Déviation</div><div><i style="background:repeating-linear-gradient(90deg,#dc2626 0 5px,#fff 5px 10px);outline:1px solid #dc2626"></i>Itinéraire barré</div></div></div></div>
 <div id="rue"><div class="barre"><b id="rueTitre"></b><button type="button" onclick="fermerRue()">✕ Fermer</button></div><div id="sv"></div><div class="pied" id="ruePied"></div></div>
 <!-- clé Google Maps (restreinte à cette adresse) : fichier config.js déposé à part, jamais dans ce fichier -->
 <script src="config.js"></script>
@@ -1126,7 +1129,7 @@ show(0);
   }
   var lecture = null;
   function arreterVideo() { if (lecture) { cancelAnimationFrame(lecture.raf); lecture = null; } }
-  window.fermerVideo = function () { arreterVideo(); document.getElementById('video').classList.remove('on'); };
+  window.fermerVideo = function () { essai++; arreterVideo(); document.getElementById('video').classList.remove('on'); };
   window.pauseVideo = function () {
     var b = document.getElementById('vPause');
     if (!lecture) return;
@@ -1141,14 +1144,24 @@ show(0);
     document.getElementById('vVite').textContent = facteur === 4 ? '×1' : '⏩ ×' + (facteur * 2);
     if (lecture) { lecture.vitesse = 14 * facteur; lecture.debut = performance.now() - lecture.x / lecture.vitesse * 1000; }
   };
-  window.jouerDeviation = function () {
-    var s2 = DEV.sens[typeof cur === 'number' ? cur : 0];
+  // choix du sens dans la fenêtre vidéo : la page suit le même sens, et un changement rapide annule la préparation en cours
+  var essai = 0;
+  function boutonsSens() {
+    var z = document.getElementById('vSens');
+    z.style.display = DEV.sens.length > 1 ? 'flex' : 'none';
+    z.innerHTML = DEV.sens.map(function (s, i) { return '<button type="button" class="' + (i === cur ? 'on' : '') + '" onclick="jouerDeviation(' + i + ')">' + esc(s.nom) + '</button>'; }).join('');
+  }
+  window.jouerDeviation = function (i) {
+    if (typeof i === 'number' && i !== cur) show(i);
+    var s2 = DEV.sens[typeof cur === 'number' ? cur : 0], n = ++essai;
+    boutonsSens();
     document.getElementById('video').classList.add('on');
-    document.getElementById('vTitre').textContent = 'Ligne ' + DEV.ligne + ' · ' + s2.nom;
+    document.getElementById('vTitre').textContent = 'Ligne ' + DEV.ligne + (DEV.sens.length > 1 ? '' : ' · ' + s2.nom);
     document.getElementById('vPause').textContent = '⏸ Pause';
     bandeau('…', 'Préparation de la vidéo', '', '#334155');
     arreterVideo();
     charger().then(function () { if (!v3) v3 = initialiser(); return preparer(s2); }).then(function (m) {
+      if (n !== essai) return;
       v3.dessiner(s2, m);
       var l = m.tout, c = m.c, total = c[c.length - 1];
       var etapes = s2.etapes.map(function (e) { return { x: abscisse(l, c, e.pos), txt: texteDe(e.txt) }; });
@@ -1173,7 +1186,7 @@ show(0);
         lecture.raf = requestAnimationFrame(lecture.image);
       };
       lecture.raf = requestAnimationFrame(lecture.image);
-    }).catch(function () { bandeau('!', 'Vidéo indisponible', 'Google Maps ne répond pas', '#b91c1c'); });
+    }).catch(function () { if (n === essai) bandeau('!', 'Vidéo indisponible', 'Google Maps ne répond pas', '#b91c1c'); });
   };
 })();
 </script>
