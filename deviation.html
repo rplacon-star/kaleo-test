@@ -928,7 +928,7 @@ show(0);
 
   // ------------------------------------------------------------------------------------------------
   // « Jouer la déviation » (30/10/2026) : vidéo 3D sur la carte vectorielle Google (bâtiments en volumes).
-  // Départ 200 m avant la déviation sur l'itinéraire normal (bleu), déviation (vert), reprise de l'itinéraire normal.
+  // Départ 200 m avant la déviation sur l'itinéraire normal (bleu), déviation (vert), reprise de l'itinéraire normal jusqu'au 1er arrêt.
   // Les tracés sont recalés sur les rues Google (Routes API) pour être posés exactement sur la chaussée de la carte.
   // ------------------------------------------------------------------------------------------------
   // le bouton n'apparaît qu'une fois la déviation chargée (pas sur « Publication en cours… »)
@@ -969,12 +969,12 @@ show(0);
   }
   // les trois morceaux : itinéraire normal avant (depuis 2 arrêts avant), déviation, itinéraire normal après
   // (anciennes données sans approche ni suite : 30 m de rue recréés du côté annoncé par la consigne)
-  function cleMemo(s2) { var dv = s2.deviation; return 'kaleo-video-v2|' + (new URLSearchParams(location.search).get('d') || '') + '|' + s2.nom + '|' + DEV.maj + '|' + dv.length + '|' + dv[0] + '|' + dv[dv.length - 1]; }
+  function cleMemo(s2) { var dv = s2.deviation; return 'kaleo-video-v3|' + (new URLSearchParams(location.search).get('d') || '') + '|' + s2.nom + '|' + DEV.maj + '|' + dv.length + '|' + dv[0] + '|' + dv[dv.length - 1]; }
   function lireMemo(s2) { try { var t = localStorage.getItem(cleMemo(s2)); return t ? JSON.parse(t) : null; } catch (e) { return null; } }
   function ecrireMemo(s2, r) {
     try {
       var arr = function (l) { return l.map(function (p) { return [+p[0].toFixed(6), +p[1].toFixed(6)]; }); };
-      Object.keys(localStorage).forEach(function (k) { if (k.indexOf('kaleo-video-v2|') === 0 && k.split('|')[1] === cleMemo(s2).split('|')[1] && k.split('|')[2] === s2.nom) localStorage.removeItem(k); });   // anciennes versions
+      Object.keys(localStorage).forEach(function (k) { if (k.indexOf('kaleo-video-v3|') === 0 && k.split('|')[1] === cleMemo(s2).split('|')[1] && k.split('|')[2] === s2.nom) localStorage.removeItem(k); });   // anciennes versions
       localStorage.setItem(cleMemo(s2), JSON.stringify(r.map(arr)));
     } catch (e) { }
   }
@@ -988,12 +988,34 @@ show(0);
     }
     return r;
   }
+  // position d'un point sur un tracé : abscisse (m) et écart (m), projeté sur les segments
+  function surTrace(l, p) {
+    var km = Math.cos(p[0] * R) * 111195, x = 0, mieux = { x: 0, e: 1e9 };
+    for (var i = 0; i < l.length - 1; i++) {
+      var ax = (l[i][1] - p[1]) * km, ay = (l[i][0] - p[0]) * 111195, bx = (l[i + 1][1] - p[1]) * km, by = (l[i + 1][0] - p[0]) * 111195;
+      var dx = bx - ax, dy = by - ay, lg2 = dx * dx + dy * dy, t = lg2 ? Math.max(0, Math.min(1, -(ax * dx + ay * dy) / lg2)) : 0;
+      var e = Math.hypot(ax + dx * t, ay + dy * t);
+      if (e < mieux.e) mieux = { x: x + t * Math.sqrt(lg2), e: e };
+      x += Math.sqrt(lg2);
+    }
+    return mieux;
+  }
+  // fin de la vidéo : 1er arrêt après la déviation ; sans arrêt reconnu sur la suite, 200 m après la reprise
+  function jusquAuPremierArret(suite, approche, arrets) {
+    var xFin = null;
+    (arrets || []).forEach(function (r) {
+      var q = surTrace(suite, r.pos);
+      if (q.e < 40 && q.e <= surTrace(approche, r.pos).e && q.x > 1 && (xFin === null || q.x < xFin)) xFin = q.x;
+    });
+    return derniers(suite.slice().reverse(), xFin === null ? 200 : xFin).reverse();
+  }
   function preparer(s2) {
     if (s2.__video) return s2.__video;
     var dv = s2.deviation, a = s2.approche, b = s2.suite;
     if (!a || a.length < 2) { var c0 = cap(dv[0], dv[Math.min(3, dv.length - 1)]), t0 = tourneDe(texteDe(s2.etapes[0].txt)); a = [decalerV(dv[0], c0 - t0 * 90 + 180, 30), dv[0]]; }
     if (!b || b.length < 2) { var n = dv.length, c1 = cap(dv[Math.max(0, n - 4)], dv[n - 1]), t1 = tourneDe(texteDe(s2.etapes[s2.etapes.length - 1].txt)); b = [dv[n - 1], decalerV(dv[n - 1], c1 + t1 * 90, 30)]; }
     a = derniers(a, 200);   // départ 200 m avant la déviation : au-delà, la vidéo est trop longue
+    b = jusquAuPremierArret(b, a, s2.arretsNormal);
     var memo = lireMemo(s2);
     s2.__video = (memo && memo.length === 4 ? Promise.resolve(memo) : Promise.all([recaler(a), recaler(dv), recaler(b), recaler(s2.normal)]).then(function (r) { ecrireMemo(s2, r); return r; })).then(function (r) {
       var av = r[0], de = [r[0][r[0].length - 1]].concat(r[1]), ap = [de[de.length - 1]].concat(r[2]);
