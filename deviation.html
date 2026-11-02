@@ -919,108 +919,6 @@ show(0);
         var pos = [data.location.latLng.lat(), data.location.latLng.lng()];
         var regard = carrefour ? plusProche(data.links, capSortie, 50) : plusProche(data.links, cap(pos, J), 45);
         pano = new g.StreetViewPanorama(zone, { pano: data.location.pano, pov: { heading: regard, pitch: -12 }, zoom: 1, addressControl: false, fullscreenControl: false, motionTracking: false, motionTrackingControl: false, showRoadLabels: true, linksControl: true, clickToGo: true });
-        var couleur = s.couleur || '#1d6fd8';
-        function decaler(q, cp, mm) { var kx = 111195 * Math.cos(q[0] * R); return [q[0] + Math.cos(cp * R) * mm / 111195, q[1] + Math.sin(cp * R) * mm / kx]; }
-        // flèche au sol, construite en mètres autour de la caméra (x vers l'est, y vers le nord) :
-        // - la voiture Google roule sur sa voie : la bande part sous la caméra et suit l'axe de la rue (direction Google),
-        //   au lieu de viser le point du carrefour (qui est au milieu de la chaussée, parfois sur le stationnement) ;
-        // - elle tourne là où cet axe croise la rue de sortie, prise 1,5 m à droite de son milieu (voie du bus) ;
-        // - elle finit 10 m plus loin dans la rue de sortie par une pointe.
-        function versLatLon(cam, x, y) { return [cam[0] + y / 111195, cam[1] + x / (111195 * Math.cos(cam[0] * R))]; }
-        function versXY(cam, q) { return [(q[1] - cam[1]) * 111195 * Math.cos(cam[0] * R), (q[0] - cam[0]) * 111195]; }
-        function geometrie(cam) {
-          if (carrefour) {
-            // vue au carrefour : la bande part sous la caméra dans la rue de sortie (direction Google) sur 14 m
-            var cs0 = plusProche(pano.getLinks(), capSortie, 50), u0 = [Math.sin(cs0 * R), Math.cos(cs0 * R)], n0 = [u0[1], -u0[0]], pc = [];
-            for (var a0 = 2.5; a0 <= 14; a0 += 1.5) pc.push([u0[0] * a0, u0[1] * a0]);
-            var F0 = [u0[0] * 14, u0[1] * 14];
-            var ll0 = function (p) { return versLatLon(cam, p[0], p[1]); };
-            return { capEntree: null, pts: pc.map(ll0), pointe: [[F0[0] - n0[0] * 2, F0[1] - n0[1] * 2], [F0[0] + u0[0] * 5, F0[1] + u0[1] * 5], [F0[0] + n0[0] * 2, F0[1] + n0[1] * 2]].map(ll0) };
-          }
-          var capEntree = plusProche(pano.getLinks(), cap(cam, J), 35);
-          var de = [Math.sin(capEntree * R), Math.cos(capEntree * R)], ds = [Math.sin(capSortie * R), Math.cos(capSortie * R)];
-          var jx = versXY(cam, J), OFF = 1.5;
-          var js = [jx[0] + OFF * ds[1], jx[1] - OFF * ds[0]];   // milieu de la rue de sortie décalé à droite
-          // coin = intersection de l'axe d'entrée (passant par la caméra) et de la voie de sortie
-          var det = de[0] * ds[1] - de[1] * ds[0], L;
-          if (Math.abs(det) > 0.34) L = (js[0] * ds[1] - js[1] * ds[0]) / det;   // virage franc (> 20°)
-          else L = jx[0] * de[0] + jx[1] * de[1];                                // presque tout droit : au droit du carrefour
-          L = Math.max(L, 6);
-          var C = [de[0] * L, de[1] * L], r = Math.min(5, L * 0.35), pts = [];
-          // carrefour loin (> 18 m) : la rue de sortie est souvent cachée par les façades, la pointe reste au coin
-          var sortieM = L > 18 ? 4 : 10; r = Math.min(r, sortieM - 1);
-          var A = [C[0] - de[0] * r, C[1] - de[1] * r], B = [C[0] + ds[0] * r, C[1] + ds[1] * r], F = [C[0] + ds[0] * sortieM, C[1] + ds[1] * sortieM];
-          var D0 = [de[0] * 2.5, de[1] * 2.5];
-          var nA = Math.max(2, Math.round((L - r - 2.5) / 1.5));
-          for (var u = 0; u <= nA; u++) pts.push([D0[0] + (A[0] - D0[0]) * u / nA, D0[1] + (A[1] - D0[1]) * u / nA]);
-          for (var v = 1; v <= 10; v++) { var tt = v / 10, p0 = (1 - tt) * (1 - tt), p1 = 2 * (1 - tt) * tt, p2 = tt * tt; pts.push([p0 * A[0] + p1 * C[0] + p2 * B[0], p0 * A[1] + p1 * C[1] + p2 * B[1]]); }
-          var nB = Math.max(2, Math.round((sortieM - r) / 1.5));
-          for (var w2 = 1; w2 <= nB; w2++) pts.push([B[0] + (F[0] - B[0]) * w2 / nB, B[1] + (F[1] - B[1]) * w2 / nB]);
-          var nrm = [ds[1], -ds[0]];
-          var pointe = [[F[0] - nrm[0] * 2, F[1] - nrm[1] * 2], [F[0] + ds[0] * 5, F[1] + ds[1] * 5], [F[0] + nrm[0] * 2, F[1] + nrm[1] * 2]];
-          var ll = function (p) { return versLatLon(cam, p[0], p[1]); };
-          return { capEntree: capEntree, pts: pts.map(ll), pointe: pointe.map(ll) };
-        }
-        var NS = 'http://www.w3.org/2000/svg', calque = document.createElementNS(NS, 'svg');
-        calque.setAttribute('style', 'position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:3');
-        var trait = document.createElementNS(NS, 'path');
-        trait.setAttribute('fill', couleur); trait.setAttribute('stroke', '#fff'); trait.setAttribute('stroke-width', '2'); trait.setAttribute('stroke-opacity', '0.85'); trait.setAttribute('stroke-linejoin', 'round');
-        trait.setAttribute('class', 'kaleo-sol');
-        calque.appendChild(trait);
-        zone.style.position = 'relative';
-        var HC = 2.5;   // hauteur de la caméra Google (m)
-        // relief : altitude de chaque point de la flèche par rapport au sol sous la caméra (Google Elevation),
-        // demandée une fois par position de la caméra ; en attendant (ou en cas d'échec), rue supposée plate
-        var alt = { cle: '', pts: null, pointe: null }, altitude = new g.ElevationService();
-        function demanderRelief(cam, geo) {
-          var cle = cam[0].toFixed(6) + ',' + cam[1].toFixed(6);
-          if (alt.cle === cle) return;
-          alt = { cle: cle, pts: null, pointe: null };
-          var lieux = [cam].concat(geo.pts, geo.pointe).map(function (q) { return { lat: q[0], lng: q[1] }; });
-          altitude.getElevationForLocations({ locations: lieux }, function (r, st) {
-            if (st !== 'OK' || !r || r.length !== lieux.length || alt.cle !== cle) return;
-            var z0 = r[0].elevation, z = r.slice(1).map(function (x) { return Math.max(-8, Math.min(8, x.elevation - z0)); });
-            alt.pts = z.slice(0, geo.pts.length); alt.pointe = z.slice(geo.pts.length);
-            dessiner();
-          });
-        }
-        function projeter(q, cam, pov, f, w, h, zq) {
-          var dd = Math.max(d(cam, q), 2), cq = cap(cam, q), yaw = ((cq - pov.heading + 540) % 360) - 180;
-          if (Math.abs(yaw) > 80) return null;
-          var el = Math.atan(((zq || 0) - HC) / dd) / R - pov.pitch;
-          return [w / 2 + f * Math.tan(yaw * R), h / 2 - f * Math.tan(el * R) / Math.cos(yaw * R), dd];
-        }
-        function dessiner() {
-          if (!pano || !pano.getPosition()) return;
-          var pv = pano.getPov(), z = pano.getZoom() || 1, fov = 180 / Math.pow(2, z), w = zone.clientWidth, h = zone.clientHeight;
-          var f = (w / 2) / Math.tan(fov / 2 * R), cp = pano.getPosition(), cam = [cp.lat(), cp.lng()];
-          var geo = geometrie(cam), pts = geo.pts;
-          if (!carrefour && !coherent(capSortie, geo.capEntree)) { trait.setAttribute('d', ''); return; }   // mieux vaut pas de flèche qu'une flèche fausse
-          demanderRelief(cam, geo);
-          var zp = alt.pts && alt.pts.length === pts.length ? alt.pts : null, zt = zp && alt.pointe ? alt.pointe : null;
-          var dpath = '', gauche = [], droite = [], kx = 111195 * Math.cos(cam[0] * R), DEMI = 0.7;
-          function fermer() { if (gauche.length > 1) dpath += ' M' + gauche.concat(droite.reverse()).map(function (r) { return r[0].toFixed(1) + ' ' + r[1].toFixed(1); }).join(' L') + ' Z'; gauche = []; droite = []; }
-          for (var n2 = 0; n2 < pts.length; n2++) {
-            var q = pts[n2], q2 = pts[Math.min(n2 + 1, pts.length - 1)], q1 = pts[Math.max(n2 - 1, 0)];
-            var dy = (q2[0] - q1[0]) * 111195, dx = (q2[1] - q1[1]) * kx, lg = Math.hypot(dx, dy) || 1;
-            var ox = -dy / lg * DEMI, oy = dx / lg * DEMI;
-            var gq = [q[0] + oy / 111195, q[1] + ox / kx], dq = [q[0] - oy / 111195, q[1] - ox / kx];
-            var zq = zp ? zp[n2] : 0, rg = projeter(gq, cam, pv, f, w, h, zq), rd = projeter(dq, cam, pv, f, w, h, zq);
-            if (!rg || !rd || rg[1] < 0 || rd[1] < 0) { fermer(); continue; }
-            gauche.push(rg); droite.push(rd);
-          }
-          fermer();
-          var pp = geo.pointe.map(function (q, n3) { return projeter(q, cam, pv, f, w, h, zt ? zt[n3] : 0); });
-          if (pp.every(function (r) { return r && r[1] >= 0; })) dpath += ' M' + pp.map(function (r) { return r[0].toFixed(1) + ' ' + r[1].toFixed(1); }).join(' L') + ' Z';
-          trait.setAttribute('d', dpath);
-        }
-        // consigne discrète en bas de l'écran (pas posée dans la rue)
-        var man = /droite/i.test(texte) ? '↱ À droite' : /gauche/i.test(texte) ? '↰ À gauche' : /demi-tour/i.test(texte) ? '↶ Demi-tour' : '↑ Tout droit';
-        var bas = document.createElement('div'); bas.textContent = man;
-        bas.setAttribute('style', 'position:absolute;z-index:4;left:50%;bottom:22px;transform:translateX(-50%);pointer-events:none;background:' + couleur + ';color:#fff;font:800 17px/1.1 system-ui,sans-serif;padding:7px 14px;border-radius:999px;border:2px solid #fff;box-shadow:0 2px 8px rgba(0,0,0,.45);opacity:.92;white-space:nowrap');
-        g.event.addListenerOnce(pano, 'status_changed', function () { zone.appendChild(calque); zone.appendChild(bas); dessiner(); });
-        ['pov_changed', 'zoom_changed', 'position_changed', 'links_changed'].forEach(function (ev) { pano.addListener(ev, dessiner); });
-        window.addEventListener('resize', dessiner);
         var date = data.imageDate ? ' · image Google du ' + data.imageDate.split('-').reverse().join('/') : '';
         var bascule = !auCarrefour ? '' : carrefour ? ' · <a href="#" onclick="vueApproche();return false">◀ Vue d’approche</a>' : ' · <a href="#" onclick="vueCarrefour();return false">Vue au carrefour ▶</a>';
         document.getElementById('ruePied').innerHTML = (carrefour ? 'Au carrefour, vers la rue de sortie' : 'Vue à ' + Math.round(d(pos, J)) + ' m du virage') + date + bascule + ' · ' + lien;
@@ -1030,7 +928,7 @@ show(0);
 
   // ------------------------------------------------------------------------------------------------
   // « Jouer la déviation » (30/10/2026) : vidéo 3D sur la carte vectorielle Google (bâtiments en volumes).
-  // Départ 2 arrêts avant la déviation sur l'itinéraire normal (bleu), déviation (vert), reprise de l'itinéraire normal.
+  // Départ 200 m avant la déviation sur l'itinéraire normal (bleu), déviation (vert), reprise de l'itinéraire normal.
   // Les tracés sont recalés sur les rues Google (Routes API) pour être posés exactement sur la chaussée de la carte.
   // ------------------------------------------------------------------------------------------------
   // le bouton n'apparaît qu'une fois la déviation chargée (pas sur « Publication en cours… »)
@@ -1071,20 +969,31 @@ show(0);
   }
   // les trois morceaux : itinéraire normal avant (depuis 2 arrêts avant), déviation, itinéraire normal après
   // (anciennes données sans approche ni suite : 30 m de rue recréés du côté annoncé par la consigne)
-  function cleMemo(s2) { var dv = s2.deviation; return 'kaleo-video-v1|' + (new URLSearchParams(location.search).get('d') || '') + '|' + s2.nom + '|' + DEV.maj + '|' + dv.length + '|' + dv[0] + '|' + dv[dv.length - 1]; }
+  function cleMemo(s2) { var dv = s2.deviation; return 'kaleo-video-v2|' + (new URLSearchParams(location.search).get('d') || '') + '|' + s2.nom + '|' + DEV.maj + '|' + dv.length + '|' + dv[0] + '|' + dv[dv.length - 1]; }
   function lireMemo(s2) { try { var t = localStorage.getItem(cleMemo(s2)); return t ? JSON.parse(t) : null; } catch (e) { return null; } }
   function ecrireMemo(s2, r) {
     try {
       var arr = function (l) { return l.map(function (p) { return [+p[0].toFixed(6), +p[1].toFixed(6)]; }); };
-      Object.keys(localStorage).forEach(function (k) { if (k.indexOf('kaleo-video-v1|') === 0 && k.split('|')[1] === cleMemo(s2).split('|')[1] && k.split('|')[2] === s2.nom) localStorage.removeItem(k); });   // anciennes versions
+      Object.keys(localStorage).forEach(function (k) { if (k.indexOf('kaleo-video-v2|') === 0 && k.split('|')[1] === cleMemo(s2).split('|')[1] && k.split('|')[2] === s2.nom) localStorage.removeItem(k); });   // anciennes versions
       localStorage.setItem(cleMemo(s2), JSON.stringify(r.map(arr)));
     } catch (e) { }
+  }
+  // garde les m derniers mètres d'un tracé, en coupant le segment de départ à la bonne distance
+  function derniers(l, m) {
+    var reste = m, r = [l[l.length - 1]];
+    for (var i = l.length - 2; i >= 0; i--) {
+      var dd = dist(l[i], l[i + 1]);
+      if (dd >= reste) { var t = dd ? reste / dd : 0; r.unshift([l[i + 1][0] + (l[i][0] - l[i + 1][0]) * t, l[i + 1][1] + (l[i][1] - l[i + 1][1]) * t]); return r; }
+      reste -= dd; r.unshift(l[i]);
+    }
+    return r;
   }
   function preparer(s2) {
     if (s2.__video) return s2.__video;
     var dv = s2.deviation, a = s2.approche, b = s2.suite;
     if (!a || a.length < 2) { var c0 = cap(dv[0], dv[Math.min(3, dv.length - 1)]), t0 = tourneDe(texteDe(s2.etapes[0].txt)); a = [decalerV(dv[0], c0 - t0 * 90 + 180, 30), dv[0]]; }
     if (!b || b.length < 2) { var n = dv.length, c1 = cap(dv[Math.max(0, n - 4)], dv[n - 1]), t1 = tourneDe(texteDe(s2.etapes[s2.etapes.length - 1].txt)); b = [dv[n - 1], decalerV(dv[n - 1], c1 + t1 * 90, 30)]; }
+    a = derniers(a, 200);   // départ 200 m avant la déviation : au-delà, la vidéo est trop longue
     var memo = lireMemo(s2);
     s2.__video = (memo && memo.length === 4 ? Promise.resolve(memo) : Promise.all([recaler(a), recaler(dv), recaler(b), recaler(s2.normal)]).then(function (r) { ecrireMemo(s2, r); return r; })).then(function (r) {
       var av = r[0], de = [r[0][r[0].length - 1]].concat(r[1]), ap = [de[de.length - 1]].concat(r[2]);
